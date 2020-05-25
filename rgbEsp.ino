@@ -34,12 +34,16 @@ const int greenChannel = 1;
 const int blueChannel = 2;
 const int resolution = 8;
 
-String _colorJSON = "{\"isOn\":true, \"red\":0,\"green\":0,\"blue\":255,\"alpha\":255}";
+String _colorJSON = "{\"isOn\":true, \"red\":0,\"green\":0,\"blue\":255,\"alpha\":255,\"type\":\"RAINBOW\"}";
 bool isOn = true;
 int red = 0;
 int green = 0;
 int blue = 255;
 int alpha = 255;
+String type = "RAINBOW";
+
+bool waveUp = true;
+double waveAlpha = 0.0;
 
 // 
 class MyServerCallbacks: public BLEServerCallbacks {
@@ -78,6 +82,7 @@ class MyCallbacks: public BLECharacteristicCallbacks {
         green = (int) myArray["green"];
         blue = (int) myArray["blue"];
         alpha = (int) myArray["alpha"];
+        type = myArray["type"];
 
         // Update led
         int redToSend = 0;
@@ -106,6 +111,7 @@ void redInterrupt() {
   green = 0;
   blue = 0;
   alpha = 255;
+  type = "STATIC";
   ledcWrite(redChannel, 255);
   ledcWrite(greenChannel, 0);
   ledcWrite(blueChannel, 0);
@@ -119,6 +125,7 @@ void greenInterrupt() {
   green = 255;
   blue = 0;
   alpha = 255;
+  type = "STATIC";
   ledcWrite(redChannel, 0);
   ledcWrite(greenChannel, 255);
   ledcWrite(blueChannel, 0);
@@ -132,6 +139,7 @@ void blueInterrupt() {
   green = 0;
   blue = 255;
   alpha = 255;
+  type = "STATIC";
   ledcWrite(redChannel, 0);
   ledcWrite(greenChannel, 0);
   ledcWrite(blueChannel, 255);
@@ -166,6 +174,7 @@ void updateJson() {
   myArray["green"] = green;
   myArray["blue"] = blue;
   myArray["alpha"] = alpha;
+  myArray["type"] = type;
   _colorJSON = JSON.stringify(myArray).c_str();
   Serial.println(_colorJSON);
   pTxCharacteristic->setValue(_colorJSON.c_str());
@@ -245,6 +254,53 @@ void setup() {
 }
 
 void loop() {
+
+  if (isOn && type == "RAINBOW") {
+    ledcWrite(redChannel, red);
+    ledcWrite(greenChannel, green);
+    ledcWrite(blueChannel, blue);
+
+    if (red > 0 && blue == 0) {
+      red--;
+      green++;
+    }
+    if (green > 0 && red == 0) {
+      green--;
+      blue++;
+    }
+    if (blue > 0 && green == 0) {
+      red++;
+      blue--;
+    }
+    delay(10); 
+  }
+  if (isOn && type == "WAVE") {
+    if (waveUp) {
+      if (waveAlpha == 100) {
+        waveUp = false;
+        waveAlpha--; 
+      } else {
+        waveAlpha++;
+      }
+    } else {
+      if (waveAlpha == 1) {
+        waveUp = true;
+        waveAlpha++;
+      } else {
+        waveAlpha--;
+      }
+    }
+    int redToSend = (int) (red * waveAlpha / 100);
+    int greenToSend = (int) (green * waveAlpha / 100);
+    int blueToSend = (int) (blue * waveAlpha / 100);
+    ledcWrite(redChannel, redToSend);
+    ledcWrite(greenChannel, greenToSend);
+    ledcWrite(blueChannel, blueToSend);
+    delay(10);
+  }
+
+
+  
     // notify changed value
     if (deviceConnected) {
         delay(3);
